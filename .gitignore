@@ -1,0 +1,27 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/
+
+# Model cache
+hf_cache/
+
+# Audio: ignore WAVs everywhere except eval/
+*.wav
+!eval/**/*.wav
+
+# Runtime output
+logs/
+eval/results*.csv
+
+# Notebooks / OS / editors
+.ipynb_checkpoints/
+.DS_Store
+.vscode/
+.idea/

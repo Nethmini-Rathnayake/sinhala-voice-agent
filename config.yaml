@@ -1,0 +1,63 @@
+# Sinhala Voice Agent configuration.
+# All model IDs, thresholds and provider names live here, never in code.
+
+audio:
+  sample_rate: 16000          # pipeline-internal rate for VAD/STT
+
+device:
+  prefer: auto                # auto | cuda | cpu
+  fp16_on_gpu: true           # fp16 is used on GPU only
+
+hf:
+  cache_dir: /content/hf_cache  # used when running in Colab (/content exists)
+  local_cache_dir: hf_cache     # used elsewhere; relative to the repo root
+
+vad:
+  threshold: 0.5              # speech probability above which a frame counts as speech
+  min_speech_duration_ms: 250
+  min_silence_duration_ms: 300
+  speech_pad_ms: 100
+
+stt:
+  model_id: Subhaka/whisper-small-Sinhala-Fine_Tune
+  fallback_model_ids:          # tried in order; WER as reported on each model card
+    - AqeelShafy7/Whisper-Sinhala_Audio_to_Text   # whisper-small, WER 50.1
+    - Ransaka/whisper-tiny-sinhala-20k            # whisper-tiny, WER 93.0
+  language: sinhala
+  task: transcribe
+  # Cap on generated tokens per second of audio, to stop repetition loops early.
+  # Sinhala is ~1.75 Whisper tokens/char; fast speech is ~15 chars/s -> ~26 tokens/s.
+  max_new_tokens_per_s: 40
+
+llm:
+  provider: gemini            # gemini | groq (overridden by LLM_PROVIDER env var)
+  max_tokens: 150
+  temperature: 0.4
+  timeout_s: 30
+  history_turns: 6            # past user/assistant turns sent to the LLM
+  providers:
+    # Endpoints and model IDs checked against provider docs on 2026-09-21.
+    gemini:
+      base_url: https://generativelanguage.googleapis.com/v1beta/openai/
+      model: gemini-3.5-flash-lite
+      api_key_env: GEMINI_API_KEY
+      reasoning_effort: minimal   # lowest thinking level Flash-Lite allows; cuts latency
+    groq:
+      base_url: https://api.groq.com/openai/v1
+      model: llama-3.3-70b-versatile
+      api_key_env: GROQ_API_KEY
+      reasoning_effort: null      # not a reasoning model
+
+chunker:
+  terminators: [".", "?", "!", "।", "\n"]
+
+tts:
+  model_id: dialoglk/SinhalaVITS-TTS-F1
+  revision: 0a695a76ebcdb8b0cfb73e49b37814e67d1e893c  # pinned: romanizer.py is imported as code
+  checkpoint_file: Nipunika_210000.pth
+  config_file: Nipunika_config.json
+  romanizer_file: romanizer.py   # Sinhala script -> romanized input the model was trained on
+  trailing_silence_ms: 150       # pause appended after each synthesized sentence
+
+logging:
+  latency_log_path: logs/latency.jsonl

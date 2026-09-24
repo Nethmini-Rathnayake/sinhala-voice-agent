@@ -1,0 +1,40 @@
+# Core
+numpy>=1.24
+pyyaml>=6.0
+python-dotenv>=1.0
+
+# Audio I/O and resampling
+soundfile>=0.12
+librosa>=0.10
+
+# Models
+torch>=2.6          # needed to load pytorch_model.bin weights (primary STT model)
+torchaudio>=2.6     # imported by silero-vad
+packaging>=23.0     # used by silero-vad
+onnxruntime>=1.16.1 # imported unconditionally by silero-vad 6.2.2
+# silero-vad must be installed separately, without its dependencies, because it
+# caps torchaudio below the version matching torch>=2.6 (we don't use its audio I/O):
+#   pip install --no-deps silero-vad==6.2.2
+transformers>=4.57,<5    # coqui-tts 0.27.5 needs >=4.57 and breaks on 5.x (removed isin_mps_friendly)
+accelerate>=0.30
+
+# TTS: SinhalaVITS is a Coqui TTS (VITS) model. The model card pins TTS==0.21.1,
+# which needs Python <3.12; coqui-tts is the maintained fork with the same API.
+coqui-tts[codec]==0.27.5  # [codec] = torchcodec, which coqui-tts requires on torch>=2.9
+# torchcodec needs FFmpeg's shared libraries at import time, and transformers'
+# ASR pipeline imports torchcodec whenever it is installed. Colab's FFmpeg works.
+# On macOS, torchcodec 0.11 supports FFmpeg 4-8 only, while brew's `ffmpeg` is 9:
+#   brew install ffmpeg@8
+#   export DYLD_LIBRARY_PATH=/opt/homebrew/opt/ffmpeg@8/lib
+# Without this, importing the STT pipeline raises OSError on libtorchcodec.
+
+# LLM (OpenAI-compatible client for Gemini / Groq)
+openai>=1.60
+
+# UI
+# Gradio 6 requires huggingface-hub>=1.0, which transformers<5 refuses; 5.x works with both.
+gradio>=5.50,<6
+huggingface-hub>=0.34,<1.0
+
+# Dev
+pytest>=8.0
