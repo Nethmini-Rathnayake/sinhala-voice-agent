@@ -38,3 +38,4 @@ huggingface-hub>=0.34,<1.0
 
 # Dev
 pytest>=8.0
+jiwer>=3.0          # word error rate in eval/run_eval.py
