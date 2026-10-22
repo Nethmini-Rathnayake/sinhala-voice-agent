@@ -90,22 +90,31 @@ email → ඉමේල්, WiFi → වයිෆයි — and numbers as words.
 `src/llm.py` logs a warning rather than silently dropping text, and `src/tts.py` warns
 about any character it cannot pronounce. Silent loss would be the worse failure.
 
-## Measured latency
+## Measured results
 
-One turn on an Apple M1 (CPU, fp32):
+Ten utterances from OpenSLR SLR52 (read Sinhala, with reference transcripts) through the
+whole pipeline on an Apple M1 — CPU, fp32:
 
-| Stage | Time |
+| Stage | Mean |
 |---|---|
-| `vad_ms` | 191 ms |
-| `stt_ms` | 22,006 ms |
-| `llm_first_token_ms` | 1,854 ms |
-| `llm_total_ms` | 2,298 ms |
-| `tts_first_sentence_ms` | 3,546 ms |
-| `total_to_first_audio_ms` | 28,042 ms |
+| `vad_ms` | 113 ms |
+| `stt_ms` | 43,132 ms |
+| `llm_first_token_ms` | 1,435 ms |
+| `llm_total_ms` | 1,570 ms |
+| `tts_first_sentence_ms` | 2,092 ms |
+| `total_to_first_audio_ms` | 46,907 ms (P50 38,286 · P95 79,053) |
 
-Whisper dominates at 79% of the turn. A T4 with fp16 should cut that sharply, and Phase 2
-(synthesising each sentence while the LLM is still generating) attacks time-to-first-audio
-directly. Neither number is measured yet.
+Accuracy: **WER 0.737, CER 0.264.**
+
+Two things follow from this. **Whisper is 92% of the turn** — everything else together is
+under four seconds, and the LLM answers in ~1.4 s. So Phase 2 (synthesising each sentence
+while the LLM still generates) reshuffles a small slice; the real win is Whisper on a GPU
+with fp16. And **CER is the metric to watch**: Sinhala splits compound words
+inconsistently, so `ඔය වගේ` heard as `ඔයවගේ` scores two whole words wrong while the
+characters are 86% right. WER overstates the damage.
+
+These are CPU numbers on read speech. T4 figures do not exist yet, and neither does any
+measurement on code-switched Sinhala-English, which is what the agent is actually for.
 
 ## Dependency notes
 

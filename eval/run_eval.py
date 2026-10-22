@@ -36,7 +36,7 @@ TIMING_FIELDS = [
     "tts_first_sentence_ms",
     "total_to_first_audio_ms",
 ]
-FIELDNAMES = ["filename", "reference", "transcript", "wer", "reply", "reply_audio_s", "skipped", *TIMING_FIELDS]
+FIELDNAMES = ["filename", "reference", "transcript", "wer", "cer", "reply", "reply_audio_s", "skipped", *TIMING_FIELDS]
 
 DEFAULT_UTTERANCES = REPO_ROOT / "eval" / "utterances"
 DEFAULT_OUT = REPO_ROOT / "eval" / "results.csv"
@@ -49,14 +49,20 @@ def normalize(text: str) -> str:
     return " ".join(_PUNCTUATION.sub(" ", text.lower()).split())
 
 
-def word_error_rate(reference: str, hypothesis: str) -> float | None:
-    """WER between reference and hypothesis, or None if jiwer is missing."""
+def error_rates(reference: str, hypothesis: str) -> tuple[float, float] | None:
+    """(WER, CER) between reference and hypothesis, or None if jiwer is missing.
+
+    CER matters more than WER for Sinhala: writing splits compound words
+    inconsistently (``ඔය වගේ`` vs ``ඔයවගේ``), so a single spacing difference
+    can score two whole words wrong while the characters are nearly right.
+    """
     try:
         import jiwer
     except ImportError:
-        logger.warning("jiwer is not installed; skipping WER (pip install jiwer)")
+        logger.warning("jiwer is not installed; skipping WER/CER (pip install jiwer)")
         return None
-    return jiwer.wer(normalize(reference), normalize(hypothesis))
+    ref, hyp = normalize(reference), normalize(hypothesis)
+    return jiwer.wer(ref, hyp), jiwer.cer(ref, hyp)
 
 
 def reference_for(wav_path: Path) -> str:
@@ -71,13 +77,14 @@ def evaluate(wav_path: Path) -> dict[str, object]:
     reply_audio, transcript, reply_text, timings = run_turn(audio, sr, [])
 
     reference = reference_for(wav_path)
-    wer = word_error_rate(reference, transcript) if reference else None
+    rates = error_rates(reference, transcript) if reference else None
 
     row: dict[str, object] = {
         "filename": wav_path.name,
         "reference": reference,
         "transcript": transcript,
-        "wer": "" if wer is None else round(wer, 3),
+        "wer": "" if rates is None else round(rates[0], 3),
+        "cer": "" if rates is None else round(rates[1], 3),
         "reply": reply_text,
         "reply_audio_s": round(len(reply_audio) / reply_sample_rate(), 2) if len(reply_audio) else 0.0,
         "skipped": "" if transcript and len(reply_audio) else "yes",
@@ -96,10 +103,13 @@ def summarize(rows: list[dict[str, object]]) -> None:
     print(f"\n{len(rows)} utterance(s)")
 
     wers = [float(r["wer"]) for r in rows if r["wer"] != ""]
+    cers = [float(r["cer"]) for r in rows if r["cer"] != ""]
     if wers:
-        print(f"  WER (mean over {len(wers)} with references): {mean(wers):.3f}")
+        print(f"  over {len(wers)} utterance(s) with references:")
+        print(f"    WER (mean) {mean(wers):.3f}")
+        print(f"    CER (mean) {mean(cers):.3f}   <- the meaningful one for Sinhala")
     else:
-        print("  WER: no reference transcripts found (add a .txt beside each .wav)")
+        print("  WER/CER: no reference transcripts found (add a .txt beside each .wav)")
 
     print("  mean latency:")
     for field in TIMING_FIELDS:
